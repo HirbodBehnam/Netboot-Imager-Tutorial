@@ -59,6 +59,9 @@ You can either enable drivers as modules or simply embed them inside your kernel
 
 Another option which I recommend is using a distribution's configuration file. This configuration file is located under `/boot` directory and usually starts with `config-`. This file must be copied to Linux's source code tree with the name of `.config`. After copying this file, make sure to run `make menuconfig` to fill the missing configurations with default values.You can also double check every module, driver and features.
 
+> [!TIP]
+> You might run into an error such as `*** No rule to make target 'debian/canonical-certs.pem', needed by 'certs/x509_certificate_list'.  Stop.`. In this case, open the `.config` file using a text editor and search for values containing `.pem` file. Just empty those values and try to make the kernel again.
+
 #### Using a Distro's Kernel
 
 This is a simpler way to get started. You just need to get the ISO of a distro. I personally recommend [Alpine Linux](https://www.alpinelinux.org/downloads/) standard edition ISO. As you probably know, there are two very main components when you are booting Linux: The kernel and initramfs. In most ISO files like Alpine, the kernel is located at `/boot/vmlinuz` and initramfs is located as `/boot/initramfs`. Names may vary; for instance, `/boot/bzImage` is also another common name for Linux kernel. You can check the files using the `file` command.
