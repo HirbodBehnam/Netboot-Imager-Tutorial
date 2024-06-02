@@ -62,6 +62,24 @@ Another option which I recommend is using a distribution's configuration file. T
 > [!TIP]
 > You might run into an error such as `*** No rule to make target 'debian/canonical-certs.pem', needed by 'certs/x509_certificate_list'.  Stop.`. In this case, open the `.config` file using a text editor and search for values containing `.pem` file. Just empty those values and try to make the kernel again.
 
+#### Kernel Modules
+
+One thing which you should probably do when you are compiling the Linux yourself is enabling the modules which are needed to run on the fog. For instance, a network driver might be needed in order to use the LAN. Or a SCSI driver might be needed in order to detect the disk or many other reasons.
+
+In case that you are building based on the default config you have to explicitly enable modules which are needed for your target hardware (such as disk or network drivers). However, if your config file is based on a distro's config file you generally do not need to worry about choosing the modules. You just have to worry about loading them in the boot time (which we will get to later).
+
+In case that the computers are running on low ram, you might want to enable the module compression in the configuration, under the "Enable loadable module support" section. I personally prefer gzip because it is fast and not resource intensive while keeping an acceptable compression ratio.
+
+To export kernel modules in a folder use the following commands:
+
+```bash
+export INSTALL_MOD_PATH=/tmp/modules
+export INSTALL_MOD_STRIP=1
+make modules_install
+```
+
+`INSTALL_MOD_PATH` defines the place which the modules will be put while `INSTALL_MOD_STRIP` will strip the modules from the debugging symbols, reducing the size of them.
+
 #### Using a Distro's Kernel
 
 This is a simpler way to get started. You just need to get the ISO of a distro. I personally recommend [Alpine Linux](https://www.alpinelinux.org/downloads/) standard edition ISO. As you probably know, there are two very main components when you are booting Linux: The kernel and initramfs. In most ISO files like Alpine, the kernel is located at `/boot/vmlinuz` and initramfs is located as `/boot/initramfs`. Names may vary; for instance, `/boot/bzImage` is also another common name for Linux kernel. You can check the files using the `file` command.
