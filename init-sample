@@ -26,7 +26,7 @@ insmod /my_modules/6.6.31-0-lts/kernel/drivers/hid/hid-generic.ko
 echo "Configuring network..."
 ifconfig lo 127.0.0.1
 ip link set eth0 up
-udhcpc -i eth0 -P /usr/share/udhcpc/
+udhcpc -i eth0 -P /usr/share/udhcpc/dhcp.script
 # Shut up kernel logs
 dmesg -n 1
 echo "Welcome to Flash OS!"

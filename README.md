@@ -9,16 +9,14 @@ But what if you wanted more control on what you are doing? Or maybe you want to 
 
 At last, we will use [iventoy](https://www.iventoy.com) in order to mass deploy our ISO to multiple computers and image them.
 
-## Steps
-
-### The Kernel
+## Step 1 - The Kernel
 
 The first step to create a bootable ISO is to get the kernel file. In this case you have two options:
 
 1. Compile the kernel yourself
 2. Get it from a distro
 
-#### Compiling the Kernel
+### Compiling the Kernel
 
 In this case, at first, grab the latest kernel version from [kernel.org](https://www.kernel.org/). The use the following command to install the required dependencies for compiling the Linux kernel:
 
@@ -35,7 +33,7 @@ Compile your kernel with `make -j $(nproc)`. In the end, the compiled Linux kern
 
 You can also set `INSTALL_MOD_PATH` environment variable before executing `make modules_install` to gather all modules files in a specific directory.
 
-##### Default Configuration
+#### Default Configuration
 
 You can get the default configuration by just using the following command in the kernel's source code directory:
 
@@ -55,14 +53,14 @@ You can either enable drivers as modules or simply embed them inside your kernel
 > [!WARNING]  
 > Some of the drivers might simply NOT work if they are embedded in your kernel. One instance that I've personally encountered is the `r8169` driver which is labeled as "Realtek 8169/8168/8101/8125 ethernet support" under Linux configuration (CONFIG_R8169). The OS simply did not recognized my ethernet driver unless the module was loaded manually. I personally recommend avoiding built-in hardware drivers as much as you can.
 
-##### Using Your Distro's Configuration
+#### Using Your Distro's Configuration
 
 Another option which I recommend is using a distribution's configuration file. This configuration file is located under `/boot` directory and usually starts with `config-`. This file must be copied to Linux's source code tree with the name of `.config`. After copying this file, make sure to run `make menuconfig` to fill the missing configurations with default values.You can also double check every module, driver and features.
 
 > [!TIP]
 > You might run into an error such as `*** No rule to make target 'debian/canonical-certs.pem', needed by 'certs/x509_certificate_list'.  Stop.`. In this case, open the `.config` file using a text editor and search for values containing `.pem` file. Just empty those values and try to make the kernel again.
 
-#### Kernel Modules
+### Kernel Modules
 
 One thing which you should probably do when you are compiling the Linux yourself is enabling the modules which are needed to run on the fog. For instance, a network driver might be needed in order to use the LAN. Or a SCSI driver might be needed in order to detect the disk or many other reasons.
 
@@ -80,17 +78,17 @@ make modules_install
 
 `INSTALL_MOD_PATH` defines the place which the modules will be put while `INSTALL_MOD_STRIP` will strip the modules from the debugging symbols, reducing the size of them.
 
-#### Using a Distro's Kernel
+### Using a Distro's Kernel
 
 This is a simpler way to get started. You just need to get the ISO of a distro. I personally recommend [Alpine Linux](https://www.alpinelinux.org/downloads/) standard edition ISO. As you probably know, there are two very main components when you are booting Linux: The kernel and initramfs. In most ISO files like Alpine, the kernel is located at `/boot/vmlinuz` and initramfs is located as `/boot/initramfs`. Names may vary; for instance, `/boot/bzImage` is also another common name for Linux kernel. You can check the files using the `file` command.
 
 However, one very important note that you should take is that you HAVE TO use the compiled kernel modules included in your distribution and you CANNOT compile them yourself because of the mismatch between the compilers and the kernel version. In alpine the kernel modules are located in the `/boot/modloop-lts` file. This file can be extracted using 7z.
 
-### initramfs
+## Step 2 - initramfs
 
 The the other component which is needed to boot Linux beside the kernel is the `initrd` or `initramfs`. This is the file system the Linux kernel sees when it boots up. Usually this file system is very light and only contains a limited set of tools. For us who want to only image the disk, [BusyBox](https://busybox.net/) is completely sufficient because it provides us with tools such as `dd`, `wget` and `udhcpc`.
 
-#### Compiling Busybox
+### Compiling Busybox
 
 The first step to create the initramfs is to compile the BusyBox itself. You have to grab the latest source code from their [website](https://busybox.net/). Then run `make menuconfig` to create a configuration file. In the Settings section, search for "Build static binary (no shared libs)" and enable it. This will create a statically linked executable and enables to create the initramfs without compiling and including glibc.
 
@@ -99,7 +97,7 @@ Then simply execute `make` and then `make install`. Busybox will create a folder
 > [!TIP]
 > Use `file busybox` to check if the executable is linked statically.
 
-#### /init
+### /init
 
 `/init` is the first file which the Linux kernel executes. This file does stuff such as mounting system file systems, loading drivers and such. But first before creating the `init` script, in the `_install` folder execute this command to create the required folders for system:
 
@@ -142,9 +140,9 @@ In nutshell, this scripts mounts the special file systems such as `/dev`, `/proc
 
 However as you might have guessed, this script only gives you a shell and does not even enable networking. However, I personally think that this is the barebones of all init scripts and everything must be built on top of something like this.
 
-##### Networking
+#### Networking
 
-The first thing which is needed is networking. Because you are netbooting, you are probably using a LAN cable. You also have a DHCP server and every guest gets its IP from it. To enable networking with DHCP, at first you need to write a script to handle the DHCP messages. One example can be found at [BusyBox source code](https://github.com/mirror/busybox/blob/master/examples/udhcp/sample.bound). If you have a more predictable environment you can also create one yourself. For example, I used the script which I included in [this repo](https://github.com/HirbodBehnam/Netboot-Imager-Tutorial/blob/master/dhcp-script.script).
+The first thing which is needed is networking. Because you are netbooting, you are probably using a LAN cable. You also have a DHCP server and every guest gets its IP from it. To enable networking with DHCP, at first you need to write a script to handle the DHCP messages. One example can be found at [BusyBox source code](https://github.com/mirror/busybox/blob/master/examples/udhcp/sample.bound). If you have a more predictable environment you can also create one yourself. For example, I used the script which I included in [dhcp-sample.script](https://github.com/HirbodBehnam/Netboot-Imager-Tutorial/blob/master/dhcp-sample.script).
 
 Next, just after configuring the loopback driver run these two lines in order to start the interface and the DHCP client.
 
@@ -156,10 +154,45 @@ udhcpc -i eth0 -s /usr/share/udhcpc/default.script
 > [!NOTE]
 > Make sure to tune the interface name and the location of the script in the `init` script. The script must be executable (with `chmod +x`).
 
+#### Bind Shell
+
+Another feature which I find very useful is a bind shell which can be used to get shell from all remote computers from any other remote computer. However, this feature must only be used __ONLY AND ONLY__ if your network is a local network and __NOTHING__ else can access it. These shells can accessed without username as password with root privileges. Be careful if you enable them.
+
+To enable a bind shell on port 12345 use this line after network initialization and driver loading in `init` script:
+
+```bash
+nc -lvnp 12345 -e /bin/sh &
+```
+
 #### Loading Modules
 
 #### Imager
 
-### Making the ISO
+#### Full init
 
-### iventoy
+A full `init` script can be found at [init-sample](https://github.com/HirbodBehnam/Netboot-Imager-Tutorial/blob/master/init-sample). This is the script which I used to netboot bunch of PCs.
+
+### Packing initramfs
+
+## Step 4 - Making the ISO
+
+## Step 5 - Imaging the Mother
+
+## Step 6 - iventoy
+
+## References
+
+* https://medium.com/@ThyCrow/compiling-the-linux-kernel-and-creating-a-bootable-iso-from-it-6afb8d23ba22
+* https://phoenixnap.com/kb/build-linux-kernel
+* https://stackoverflow.com/a/51044120/4213397
+* https://superuser.com/q/705121/940438
+* https://www.hackingtutorials.org/networking/hacking-netcat-part-2-bind-reverse-shells/
+
+## Thanks
+
+* Amirhasan Jafar Abadi
+* Amirmahdi Namjoo
+* Arman Tahmasebi
+* Mehdi Mohammadi
+* ArshiA Akhavan
+* Kamran Bavar
