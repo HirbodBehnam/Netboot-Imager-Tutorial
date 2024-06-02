@@ -68,11 +68,79 @@ This is a simpler way to get started. You just need to get the ISO of a distro. 
 
 However, one very important note that you should take is that you HAVE TO use the compiled kernel modules included in your distribution and you CANNOT compile them yourself because of the mismatch between the compilers and the kernel version. In alpine the kernel modules are located in the `/boot/modloop-lts` file. This file can be extracted using 7z.
 
-### Busybox
+### initramfs
 
-### Loading Modules
+The the other component which is needed to boot Linux beside the kernel is the `initrd` or `initramfs`. This is the file system the Linux kernel sees when it boots up. Usually this file system is very light and only contains a limited set of tools. For us who want to only image the disk, [BusyBox](https://busybox.net/) is completely sufficient because it provides us with tools such as `dd`, `wget` and `udhcpc`.
 
-### Imager
+#### Compiling Busybox
+
+The first step to create the initramfs is to compile the BusyBox itself. You have to grab the latest source code from their [website](https://busybox.net/). Then run `make menuconfig` to create a configuration file. In the Settings section, search for "Build static binary (no shared libs)" and enable it. This will create a statically linked executable and enables to create the initramfs without compiling and including glibc.
+
+Then simply execute `make` and then `make install`. Busybox will create a folder named `_install` and copy all files in there.
+
+> [!TIP]
+> Use `file busybox` to check if the executable is linked statically.
+
+#### /init
+
+`/init` is the first file which the Linux kernel executes. This file does stuff such as mounting system file systems, loading drivers and such. But first before creating the `init` script, in the `_install` folder execute this command to create the required folders for system:
+
+```bash
+mkdir dev proc sys
+```
+
+With that, your `_install` must look like this:
+
+```
+.
+├── bin
+├── dev
+├── proc
+├── sbin
+├── sys
+└── usr
+    ├── bin
+    └── sbin
+```
+
+Now create a file called `init` and make it executable with `chmod +x init`. Put the following content in it:
+
+```bash
+#!/bin/sh
+# Mount system stuff
+mount -t devtmpfs none /dev
+mount -t proc none /proc
+mount -t sysfs none /sys
+# Create the loopback interface
+ifconfig lo 127.0.0.1
+# Shut up kernel logs
+dmesg -n 1
+echo "Welcome to Flasher OS!"
+# Run shell with cttyhack to enable signals
+exec setsid cttyhack /bin/sh
+```
+
+In nutshell, this scripts mounts the special file systems such as `/dev`, `/proc` and `/sys` and enables other applications to use them which is quite necessary for your OS to actually function. Next, we create the loopback interface which is needed for networking in general. The `dmesg -n 1` log disables the non fatal kernel logs to be printed to console. The message logs can be accessed again in the console using `dmesg` function. At last, we run `/bin/sh` with `setsid` and `cttyhack`. Both of these commands enables us to use signals and quit from running applications with CTRL + C and such while not killing the `/bin/sh`.
+
+However as you might have guessed, this script only gives you a shell and does not even enable networking. However, I personally think that this is the barebones of all init scripts and everything must be built on top of something like this.
+
+##### Networking
+
+The first thing which is needed is networking. Because you are netbooting, you are probably using a LAN cable. You also have a DHCP server and every guest gets its IP from it. To enable networking with DHCP, at first you need to write a script to handle the DHCP messages. One example can be found at [BusyBox source code](https://github.com/mirror/busybox/blob/master/examples/udhcp/sample.bound). If you have a more predictable environment you can also create one yourself. For example, I used the script which I included in [this repo](https://github.com/HirbodBehnam/Netboot-Imager-Tutorial/blob/master/dhcp-script.script).
+
+Next, just after configuring the loopback driver run these two lines in order to start the interface and the DHCP client.
+
+```bash
+ifconfig eth0 up
+udhcpc -i eth0 -s /usr/share/udhcpc/default.script
+```
+
+> [!NOTE]
+> Make sure to tune the interface name and the location of the script in the `init` script. The script must be executable (with `chmod +x`).
+
+#### Loading Modules
+
+#### Imager
 
 ### Making the ISO
 

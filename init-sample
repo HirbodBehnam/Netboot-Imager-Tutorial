@@ -1,0 +1,41 @@
+#!/bin/sh
+# Mount system stuff
+echo "Mounting /dev"
+mount -t devtmpfs none /dev
+echo "Mounting /proc"
+mount -t proc none /proc
+echo "Mounting /sys"
+mount -t sysfs none /sys
+# Install kernel modules
+echo "Installing network related modules..."
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/net/phy/libphy.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/net/phy/realtek.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/net/phy/mdio_devres.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/net/ethernet/realtek/r8169.ko
+insmod /my_modules/6.6.31-0-lts/kernel/net/packet/af_packet.ko # needed for dhcp
+# Install keyboard stuff
+echo "Installing keyboard related modules"
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/usb/common/usb-common.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/usb/core/usbcore.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/usb/host/ehci-hcd.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/usb/host/ehci-pci.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/hid/hid.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/hid/usbhid/usbhid.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/hid/hid-generic.ko
+# Networking https://serverfault.com/q/963994
+echo "Configuring network..."
+ifconfig lo 127.0.0.1
+ip link set eth0 up
+udhcpc -i eth0 -P /usr/share/udhcpc/
+# Shut up kernel logs
+dmesg -n 1
+echo "Welcome to Flash OS!"
+# Create a bind shell
+echo "Creating a bind shell..."
+nc -lvnp 12345 -e /bin/sh &
+# Flash the disk!
+echo "Flashing the disk..."
+wget -O- 'http://192.168.1.1:8000/disk-image.img' | dd bs=4M of=/dev/sda
+echo "Flashing disk done with status $!!"
+# Run shell with cttyhack to enable signals and do diagnosticts
+exec setsid cttyhack /bin/sh

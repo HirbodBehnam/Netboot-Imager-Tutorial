@@ -1,0 +1,5 @@
+#!/bin/sh
+if [ "$1" == "bound" ]; then
+	ifconfig eth0 "$ip" netmask 255.255.255.0 broadcast 192.168.60.255
+	route add -net 192.168.60.0/24 eth0
+fi
