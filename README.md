@@ -156,7 +156,7 @@ udhcpc -i eth0 -s /usr/share/udhcpc/default.script
 
 #### Bind Shell
 
-Another feature which I find very useful is a bind shell which can be used to get shell from all remote computers from any other remote computer. However, this feature must only be used __ONLY AND ONLY__ if your network is a local network and __NOTHING__ else can access it. These shells can accessed without username as password with root privileges. Be careful if you enable them.
+Another feature which I find very useful is a bind shell which can be used to gcet shell from all remote computers from any other remote computer. However, this feature must only be used __ONLY AND ONLY__ if your network is a local network and __NOTHING__ else can access it. These shells can accessed without username as password with root privileges. Be careful if you enable them.
 
 To enable a bind shell on port 12345 use this line after network initialization and driver loading in `init` script:
 
@@ -165,6 +165,35 @@ nc -lvnp 12345 -e /bin/sh &
 ```
 
 #### Loading Modules
+
+Here comes the most chaotic part of this tutorial. I actually do not know a good way to automate this step but there are some ways to do it.
+
+##### Lawful
+
+The lawful way is to probably use stuff like [kmod](https://github.com/kmod-project/kmod) to automatically load appropriate kernel modules. This is probably the best way if you want to mass deploy the imager on computers with different hardware. Because each computer will load its own specific set of modules.
+
+I _really_ want to try this method out, but I currently do not have the time and energy to do so. If you did it, please let me know! You can probably also check what other very light distros such as alpine are doing and try to replicate them.
+
+##### Neutral
+
+In the case that every computer is the same in the fog, you can hardcode the modules which are going to be loaded. This will make your `initramfs` file very light because you only need a few modules. In case that you want to go down this way (which I did myself and recommend it!), boot up a distro and by using `lsmod` command, check which modules are loaded. Then, in the `init` file and using `insmod` command install every module which you need. For example, for USB keyboard support, I use this:
+
+```bash
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/usb/common/usb-common.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/usb/core/usbcore.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/usb/host/ehci-hcd.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/usb/host/ehci-pci.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/hid/hid.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/hid/usbhid/usbhid.ko
+insmod /my_modules/6.6.31-0-lts/kernel/drivers/hid/hid-generic.ko
+```
+
+> [!IMPORTANT]  
+> Be sure to load modules in order. Modules tend to have dependencies on each other. These dependencies can be seen with `lsmod` or `modinfo` command.
+
+##### Chaotic
+
+Load/embed everything. Don't do this :)
 
 #### Imager
 
