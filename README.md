@@ -217,6 +217,28 @@ Also, I suggest that before netbooting everything, try to get the file from one 
 
 ##### How to image the mother PC?
 
+We will talk about this in an upcoming section.
+
+#### Full init
+
+A full `init` script can be found at [init-sample](https://github.com/HirbodBehnam/Netboot-Imager-Tutorial/blob/master/init-sample). This is the script which I used to netboot bunch of PCs.
+
+### Packing initramfs
+
+Packing the initramfs is very easy. Just go to the folder which is the root of your initramfs and execute the following command:
+
+```bash
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
+```
+
+It will create the initramfs is the upper directory and you can simply use it!
+
+## Step 4 - Making the ISO
+
+
+
+## Step 5 - Imaging the Mother
+
 This can be done with `dd` command. Something like this should work:
 
 ```bash
@@ -232,12 +254,14 @@ dd bs=4M if=/dev/sda of=/media/USB/disk-image.img
 
 Based on the above caution, I suggest you to grab a Ubuntu Live USB and boot from it. In the operating system, DO NOT mount any local disk and only mount a USB disk that should hold the image and put the image on the USB.
 
-##### Compression
+At last, put this image somewhere in the DHCP computer that runs the python http server. Make sure to check the filename.
+
+### Compression
 
 It is possible to compress and decompress the image on-fly. When imaging, use the following command:
 
 ```bash
-dd if=/dev/sda | gzip -9 > /media/USB/disk-image.img.gz
+dd bs=4M if=/dev/sda | gzip -9 > /media/USB/disk-image.img.gz
 ```
 
 And for imaging the `init` script use the following command:
@@ -249,7 +273,7 @@ wget -O- 'http://192.168.1.1:8000/disk-image.img.gz' | gzip -cd | dd bs=4M of=/d
 > [!TIP]
 > Other compressions are also possible. For example, `xz` will result in smaller size archive however, it will take more CPU time to compress it. I personally think that gzip keeps a good time/size ratio.
 
-##### Image with cpio
+### Image with cpio
 
 It is possible to use `cpio` command instead of `dd` command in order to only make a snapshot of the partition content instead of block level snapshot. This is useful if the partition or disk is very large or maybe if you want to just clone a partition content (in oppose of OS clone).
 
@@ -270,6 +294,7 @@ In general, if you want to use `cpio` based images, I recommend that you follow 
 
 > [!WARNING]
 > GPT type disks are a little bit more complicated than that. For example you have to also backup the backup GPT LBA which is stored in the last LBA. If you really want to clone a GPT disk, I suggest that you start creating the partitions from scratch and clone each one. Also remember to clone the ESP partition as well.
+>
 > You can do partitioning with `fdisk` or `gdisk` command.
 
 To clone a partition use the following command in the root of the partition:
@@ -289,24 +314,6 @@ wget -O- 'http://192.168.1.1:8000/partition-image.cpio.gz' | gzip -cd | cpio -id
 
 > [!TIP]
 > You might also try `tar` which is more popular. I have not tried to clone a partition with `tar` but on paper, it looks good to me.
-
-#### Full init
-
-A full `init` script can be found at [init-sample](https://github.com/HirbodBehnam/Netboot-Imager-Tutorial/blob/master/init-sample). This is the script which I used to netboot bunch of PCs.
-
-### Packing initramfs
-
-Packing the initramfs is very easy. Just go to the folder which is the root of your initramfs and execute the following command:
-
-```bash
-find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
-```
-
-It will create the initramfs is the upper directory and you can simply use it!
-
-## Step 4 - Making the ISO
-
-## Step 5 - Imaging the Mother
 
 ## Step 6 - iventoy
 
