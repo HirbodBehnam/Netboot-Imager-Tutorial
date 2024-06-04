@@ -9,6 +9,8 @@ But what if you wanted more control on what you are doing? Or maybe you want to 
 
 At last, we will use [iventoy](https://www.iventoy.com) in order to mass deploy our ISO to multiple computers and image them.
 
+**Disclaimer**: This tutorial is written for people who are familiar with Linux and somehow familiar with internals of it like modules and such. You should also know how to compile stuff such as Linux kernel itself!
+
 ## Step 1 - The Kernel
 
 The first step to create a bootable ISO is to get the kernel file. In this case you have two options:
@@ -170,7 +172,7 @@ Here comes the most chaotic part of this tutorial. I actually do not know a good
 
 ##### Lawful
 
-The lawful way is to probably use stuff like [kmod](https://github.com/kmod-project/kmod) to automatically load appropriate kernel modules. This is probably the best way if you want to mass deploy the imager on computers with different hardware. Because each computer will load its own specific set of modules.
+The lawful way is to use stuff like [kmod](https://github.com/kmod-project/kmod) and [udev](https://en.wikipedia.org/wiki/Udev) to automatically load appropriate kernel modules. This is probably the best way if you want to mass deploy the imager on computers with different hardware. Because each computer will load its own specific set of modules. However, you need more stuff to be included in your initramfs such as `kmod` or even `systemd`! So more stuff should be done if you want to go down this way.
 
 I _really_ want to try this method out, but I currently do not have the time and energy to do so. If you did it, please let me know! You can probably also check what other very light distros such as alpine are doing and try to replicate them.
 
@@ -197,11 +199,110 @@ Load/embed everything. Don't do this :)
 
 #### Imager
 
+When everything is ready in the `init` script, we have to actually flash the disk. To do so, we can use `dd` command. The `dd` command accepts the input file as pipe stream. This means that we can pipe the output of another command to `dd` and write everything into your block device. In this tutorial we are going to use the good old `wget` command to get the image from internet/local network and flash it to the disk.
+
+This means that we should use a command like this:
+
+```bash
+wget -O- 'http://192.168.1.1:8000/disk-image.img' | dd bs=4M of=/dev/sda
+```
+
+Where `http://192.168.1.1:8000/disk-image.img` is the address to the disk image.
+
+##### Where to host the image?
+
+I think the best place to host the image is where the DHCP server is. Because DHCP server must be reachable from every device and probably you are running `iventoy` from it so it must be a capable computer. In that computer, you can use `python3 -m http.server` to bring a very simple file server up and run it on port 8000. If you want to change the port, use `python3 -m http.server 12345` to run it on port 12345. Make sure that you have configured your firewall in order to allow incoming connections to your host.
+
+Also, I suggest that before netbooting everything, try to get the file from one of the computers which is booted from a USB stick to Ubuntu or another distro to make sure that your file server works.
+
+##### How to image the mother PC?
+
+This can be done with `dd` command. Something like this should work:
+
+```bash
+dd bs=4M if=/dev/sda of=/media/USB/disk-image.img
+```
+
+> [!CAUTION]
+> You must watch out for three different pitfalls:
+>
+> 1. Make sure that the destination disk and source disk are different. For example, like in the example, output the image into a flash drive. Not only you will run out of disk but also your image is going to be broken because it's a snapshot of live disk.
+> 2. Use a live disk to flash the disk. DO NOT use the installed OS on disk to image the disk. In case of installed OS, your OS might do background task on disk and thus break your image because of inconstancy.
+> 3. You must image the whole disk not partitions. If you image partitions, you will probably end up with a broken bootloader. (i.e: do not flash `/dev/sda1`)
+
+Based on the above caution, I suggest you to grab a Ubuntu Live USB and boot from it. In the operating system, DO NOT mount any local disk and only mount a USB disk that should hold the image and put the image on the USB.
+
+##### Compression
+
+It is possible to compress and decompress the image on-fly. When imaging, use the following command:
+
+```bash
+dd if=/dev/sda | gzip -9 > /media/USB/disk-image.img.gz
+```
+
+And for imaging the `init` script use the following command:
+
+```bash
+wget -O- 'http://192.168.1.1:8000/disk-image.img.gz' | gzip -cd | dd bs=4M of=/dev/sda
+```
+
+> [!TIP]
+> Other compressions are also possible. For example, `xz` will result in smaller size archive however, it will take more CPU time to compress it. I personally think that gzip keeps a good time/size ratio.
+
+##### Image with cpio
+
+It is possible to use `cpio` command instead of `dd` command in order to only make a snapshot of the partition content instead of block level snapshot. This is useful if the partition or disk is very large or maybe if you want to just clone a partition content (in oppose of OS clone).
+
+There are pros and cons to this method:
+* Images use less disk space because files are imaged rather than blocks
+* Bigger disks can be cloned into smaller ones as long as the used disk space is less than the total capacity
+* Partitions must be created separately
+* Different partitions must be imaged in different files
+* Bootloader must be handled separately
+* NTFS partitions do not work well with `cpio`
+
+In general, if you want to use `cpio` based images, I recommend that you follow these steps to flash it:
+
+1. Use `dd` to image first two megabytes of disk. This part of disk contains the boot and partition data.
+2. Reload the partition table in the OS to get the new partitions. This can be done with `partprobe /dev/sda` command.
+3. Use `mkfs` commands to create new file systems. You probably want to use `mkfs.ext4`.
+4. Mount the needed partitions and extract the data in the partitions.
+
+> [!WARNING]
+> GPT type disks are a little bit more complicated than that. For example you have to also backup the backup GPT LBA which is stored in the last LBA. If you really want to clone a GPT disk, I suggest that you start creating the partitions from scratch and clone each one. Also remember to clone the ESP partition as well.
+> You can do partitioning with `fdisk` or `gdisk` command.
+
+To clone a partition use the following command in the root of the partition:
+
+```bash
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > /media/USB/partition-image.cpio.gz
+```
+
+> [!CAUTION]
+> I would like to remind you again that these commands must be ran from a COLD partition which is mounted in a live OS.
+
+To extract the data, use the following command in the root of new file system:
+
+```bash
+wget -O- 'http://192.168.1.1:8000/partition-image.cpio.gz' | gzip -cd | cpio -idm
+```
+
+> [!TIP]
+> You might also try `tar` which is more popular. I have not tried to clone a partition with `tar` but on paper, it looks good to me.
+
 #### Full init
 
 A full `init` script can be found at [init-sample](https://github.com/HirbodBehnam/Netboot-Imager-Tutorial/blob/master/init-sample). This is the script which I used to netboot bunch of PCs.
 
 ### Packing initramfs
+
+Packing the initramfs is very easy. Just go to the folder which is the root of your initramfs and execute the following command:
+
+```bash
+find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../initramfs.cpio.gz
+```
+
+It will create the initramfs is the upper directory and you can simply use it!
 
 ## Step 4 - Making the ISO
 
@@ -216,6 +317,7 @@ A full `init` script can be found at [init-sample](https://github.com/HirbodBehn
 * https://stackoverflow.com/a/51044120/4213397
 * https://superuser.com/q/705121/940438
 * https://www.hackingtutorials.org/networking/hacking-netcat-part-2-bind-reverse-shells/
+* https://superuser.com/a/31080/940438
 
 ## Thanks
 
