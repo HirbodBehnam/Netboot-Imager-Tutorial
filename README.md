@@ -235,7 +235,69 @@ It will create the initramfs is the upper directory and you can simply use it!
 
 ## Step 4 - Making the ISO
 
+Making the ISO is a very strange process. You need to have a virtual machine with GRUB2 as the bootloader and the same boot type of your target host. This means that if you want to netboot using UEFI, you have to have a virtual machine with UEFI GRUB and if you want to boot using BIOS, you have to have a virtual machine with BIOS boot type. My personal recommendation is to install Debian on VirtualBox and either check or uncheck "Enable EFI (Special OS only)" in the VM system settings. This will make your guest OS run on BIOS or UEFI.
 
+Now to create the ISO, you need three files. Two of them are the `bzImage` and `initramfs` which you made in previous parts. The other one is the GRUB config which is needed to tell the GRUB what to load. In case that you want to use BIOS to boot the guest OS use the following config:
+
+```
+set default=0
+set timeout=10
+menuentry 'myos' --class os {
+    insmod gzio
+    insmod part_msdos
+    linux /boot/bzImage
+    initrd /boot/initramfs.cpio.gz
+}
+```
+
+In case that you want to boot using UEFI, use the following command:
+
+```
+set default=0
+set timeout=10
+# Load EFI video drivers. This device is EFI so keep the
+# video mode while booting the linux kernel.
+insmod efi_gop
+insmod font
+if loadfont /boot/grub/fonts/unicode.pf2
+then
+        insmod gfxterm
+        set gfxmode=auto
+        set gfxpayload=keep
+        terminal_output gfxterm
+fi
+menuentry 'myos' --class os {
+    insmod gzio
+    insmod part_msdos
+    linux /boot/bzImage
+    initrd /boot/initramfs.cpio.gz
+}
+```
+
+Name this file `grub.cfg`. Now create a folder to place all files of the ISO in it. I'll call this folder `iso`. Now create the following directory structure with the given files:
+
+```
+iso/
+└── boot
+    ├── bzImage
+    ├── grub
+    │   └── grub.cfg
+    └── initramfs.cpio.gz
+```
+
+Now that you have everything in place, run the following command. This command will create the ISO file for you:
+
+```
+grub-mkrescue -o myos.iso iso/
+```
+
+This will create the `myos.iso` file which is the ISO file for your operating system and netboot boot-strapper.
+
+> [!NOTE]
+> You might also want to install the `xorriso` package from your package manager.
+
+> [!TIP]
+> Before netbooting, try the generated ISO in a virtual machine.
 
 ## Step 5 - Imaging the Mother
 
