@@ -297,7 +297,7 @@ This will create the `myos.iso` file which is the ISO file for your operating sy
 > You might also want to install the `xorriso` package from your package manager.
 
 > [!TIP]
-> Before netbooting, try the generated ISO in a virtual machine.
+> Before netbooting, try the generated ISO in a virtual machine to see if everything works fine.
 
 ## Step 5 - Imaging the Mother
 
@@ -378,6 +378,37 @@ wget -O- 'http://192.168.1.1:8000/partition-image.cpio.gz' | gzip -cd | cpio -id
 > You might also try `tar` which is more popular. I have not tried to clone a partition with `tar` but on paper, it looks good to me.
 
 ## Step 6 - iventoy
+
+The very last step to actually boot everything you have made ready on previous steps. To do so, we use [iventoy](https://www.iventoy.com/en/index.html). The first step is to actually download the iventoy from the download tab at top of the website. After you have downloaded it, extract everything in a folder which you like. Then, copy the iso file you created in step 4 in the `iso/` directory next to iventoy executable. After that, everything is set! Just click on the exe file or use `sudo ./iventoy start` to start the iventoy server.
+
+Next, visit http://127.0.0.1:26000 in order to open the control panel of iventoy. Here you can select the interface which the DHCP server should listen and as well as checking if the iventoy detects your ISO or not. To select the interface you want the iventoy to listen on, choose its IP address from the drop down menu below.
+
+![Choose IP and Interface](https://raw.githubusercontent.com/HirbodBehnam/Netboot-Imager-Tutorial/master/pics/iventoy.jpg)
+
+Next, from the side bar, choose "Image Management" in order to check if the iventoy has detected your ISO file or not.
+
+![ISO Checking](https://raw.githubusercontent.com/HirbodBehnam/Netboot-Imager-Tutorial/master/pics/iventoy-iso.jpg)
+
+After everything is set, in the "Boot Information" menu click on the big green play button to start the DCHP server.
+
+### Giving IP to Interface
+
+If you are willing to use iventoy's DCHP server, you should give your own interface an static IP address. To do so, if you are using Ubuntu, you can use `nmtui` in order to assign an static IP address to the interface. For example, as you can see below, I've assigned the `192.168.60.1/24` pool to the interface.
+
+![nmtui](https://raw.githubusercontent.com/HirbodBehnam/Netboot-Imager-Tutorial/master/pics/nmtui.jpg)
+
+If you are using another distro or not using `nmtui` at all, you have to options. You can either try to assign the IP address to interface manually with `ip` command or use the network management program installed on the OS (for example `netplan`) to assign an static IP address to the interface. Using the `ip` command is pretty starightforward. This will work on every distribution however all changes will be lost if you restart the computer. For example, if you want to assign the `192.168.60.1` to the `eth0` interface try the following command:
+
+```bash
+ip a add 192.168.60.1/24 dev eth0
+```
+
+> [!NOTE]
+> You might want to restart iventoy after you have made any changes to the network interfaces. Use `./iventoy.sh stop` and then `./iventoy.sh start`.
+
+## Step 7 - Booting Slaves
+
+The last thing you should do is to boot your slaves. Simply connect every slave including the iventoy PC to a common switch and tell the slaves to boot from PXE. When the iventoy menu comes up, choose your ISO file and wait for everything to be done!
 
 ## References
 
